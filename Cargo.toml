@@ -1,0 +1,35 @@
+[package]
+name = "byond-scan"
+version = "0.1.0"
+authors = ["Lucy <lucy@absolucy.moe>"]
+edition = "2024"
+license = "MPL-2.0"
+repository = "https://github.com/Absolucy/byond-scan"
+description = "Runtime signature + disassembly scanner for locating BYOND functions and globals without hardcoded offsets"
+publish = false
+# measured with `cargo msrv find`; the `msrv` CI job builds on exactly this
+rust-version = "1.88"
+
+[dependencies]
+# Decoding runs only at startup; encoder and formatter code stays out of the cdylib.
+iced-x86 = { version = "1", default-features = false, features = ["std", "decoder"] }
+thiserror = "2"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[lints.clippy]
+# presets
+complexity = "warn"
+correctness = "warn"
+perf = "warn"
+style = "warn"
+suspicious = "warn"
+# individual lints
+assigning_clones = "warn"
+create_dir = "warn"
+default_trait_access = "warn"
+inefficient_to_string = "warn"
+redundant_type_annotations = "warn"
+self_named_module_files = "warn"
+str_to_string = "warn"

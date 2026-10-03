@@ -1,0 +1,63 @@
+name: "Test Suite"
+on:
+    push:
+    pull_request:
+env:
+    CARGO_TERM_COLOR: always
+jobs:
+    lint-and-test:
+        name: Lint and Test (${{ matrix.target.target }})
+        runs-on: ${{ matrix.target.runner }}
+        strategy:
+            matrix:
+                target:
+                    - target: i686-pc-windows-msvc
+                      runner: windows-latest
+                    - target: i686-unknown-linux-gnu
+                      runner: ubuntu-latest
+        concurrency:
+            group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.target.target }}
+            cancel-in-progress: true
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+            - name: Install Rust Toolchain
+              uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  toolchain: nightly # nightly because we use some unstable rustfmt options
+                  target: ${{ matrix.target.target }}
+                  components: clippy, rustfmt
+            - name: Install 32-bit linker support
+              if: ${{ matrix.target.runner == 'ubuntu-latest' }}
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-multilib
+            - name: Lint with clippy
+              run: cargo clippy --all-targets --target ${{ matrix.target.target }} -- -D warnings
+            - name: Check formatting
+              uses: actions-rust-lang/rustfmt@v1
+            - name: Test
+              run: cargo test --target ${{ matrix.target.target }}
+            - name: Run the self-checking example
+              run: cargo run --example resolve_recipes --target ${{ matrix.target.target }}
+    msrv:
+        name: Minimum Rust version
+        runs-on: ubuntu-latest
+        concurrency:
+            group: ${{ github.workflow }}-${{ github.ref }}-msrv
+            cancel-in-progress: true
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+            - name: Read rust-version from Cargo.toml
+              id: msrv
+              run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].rust_version')" >> "$GITHUB_OUTPUT"
+            - name: Install Rust Toolchain
+              uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  toolchain: ${{ steps.msrv.outputs.version }}
+                  target: i686-pc-windows-msvc, i686-unknown-linux-gnu
+            - name: Check (i686-pc-windows-msvc)
+              run: cargo check --all-targets --locked --target i686-pc-windows-msvc
+            - name: Check (i686-unknown-linux-gnu)
+              run: cargo check --all-targets --locked --target i686-unknown-linux-gnu
